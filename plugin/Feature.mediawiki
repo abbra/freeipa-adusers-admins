@@ -1,0 +1,151 @@
+{{FreeIPA plugin to allow ID Overrides as members of IPA groups|version=|ticket=TODO|author=abokovoy}}
+
+== Overview ==
+
+=== A proof-of-concept plugin to support Active Directory users as members of IdM groups ===
+
+This plugin for FreeIPA allows to add Active Directory users as members of
+FreeIPA groups.  As result, Active Directory users can manage FreeIPA resources
+if these groups are part of appropriate roles. For example, adding an Active
+Directory user as a member of 'admins' group would make it equivalent to
+built-in FreeIPA 'admin' user.
+
+The plugin works by allowing user ID overrides from the `Default Trust View` in FreeIPA
+to be members of IdM groups. User ID overrides in the `Default Trust View` can only be
+created for Active Directory users. When Active Directory user authenticates
+with GSSAPI against the FreeIPA LDAP server, its Kerberos principal is
+automatically mapped to the user's ID override in the `Default Trust View`.
+LDAP server's access control plugin uses membership information of the
+corresponding LDAP entry to decide how access can be allowed.
+
+Note that we consider this approach as an interim solution. A proper solution
+is to make sure actual group membership of a user from its Kerberos ticket is
+used to consider membership in the LDAP groups.  This approach requires a
+number of changes, in 389-ds LDAP server and in Cyrus-SASL library, to allow
+dynamic discovery of the group information as supplied by a KDC in MS-PAC
+structure (part of a Kerberos ticket). These changes are particularly invasive
+but allow to re-use so-called `external groups` and external group members
+already defined in FreeIPA.
+
+== Use Cases ==
+
+
+# As an Administrator in AD I want to also be able to fully administer FreeIPA as if I am an FreeIPA admin so that I do not have to have two different accounts and passwords.
+# As an AD user I want to be able to use self service features of FreeIPA Web UI for example to upload my SSH keys or change other related to me data that is managed in FreeIPA on my behalf.
+# As an AD user or Admin I want to be able to access FreeIPA Web UI with SSO if I have a valid kerberos ticket
+# As an AD user or Admin I want to be able to access FreeIPA Web UI and be prompted for user name and password
+# As an AD user who is assigned appropriate privileges in FreeIPA, I'd like to be able enroll FreeIPA hosts.
+# As an AD user who is assigned appropriate privileges in FreeIPA, I'd like to be able to promote FreeIPA hosts to replicas.
+# As an AD user who is assigned appropriate privileges in FreeIPA, I'd like to be able to issue certificates for FreeIPA resources.
+
+== Design==
+
+=== FreeIPA integration ===
+
+FreeIPA allows to associate an ID override with an Active Directory user. This
+user ID override stores information about user-specific POSIX attributes: POSIX
+IDs for explicitly defined ID range case, home directory, user's shell, SSH
+public keys, and associated user certificates. ID overrides can be defined in a
+number of ID views, with `Default Trust View` always applied by SSSD whenever
+information about this AD user is requested in the FreeIPA realm.
+
+Existence of the user ID override in the `Default Trust View` also allows this
+user to bind to FreeIPA LDAP server when using GSSAPI authentication. This is a
+feature that FreeIPA Web UI utilizes to provide a web interfaces for a
+self-service of Active Directory users.
+
+The plugin `idoverride-memberof` relies on the following functionality of FreeIPA:
+
+# Ability to extend set of objects the could be members of IPA groups
+# Ability to propagate membership information from groups to its members performed by `memberof` plugin in 389-ds
+# Ability to return information of an ID override object as part of the `whoami` IPA command
+# Ability to request and receive membership information of an ID override object
+# Ability to change default Web UI view based on the membership information of an ID override object
+
+=== Plugin operation ===
+
+Upon FreeIPA management framework startup `idoverride-admemberof` plugin
+performs following actions:
+
+# Allow objects of `idoverrideuser` type to be members of IPA groups
+# Register a pre-callback with `group_add_member` command to add `nsMemberOf` object class back to idoverrideuser objects in case they miss it, to allow memberof plugin to propagate group membership
+# Allow idoverrideuser objects to have `nsMemberOf` object class
+
+Finally, the most complex part: in a case FreeIPA management framework has a
+broken `baseidoverride.get_dn()` implementation, replace it with a correct
+version See https://pagure.io/freeipa/issue/7255 for details. The code in the
+plugin relies on C Python code objects interface which should work for both
+Python 2.7 and Python 3.
+
+==== Web UI plugin ====
+
+Web UI component of `idoverride-admemberof` plugin extends Web UI logic to
+decide whether default Web UI view should have a full menu or should be
+confined to a self-service interface. Standard logic in FreeIPA Web UI is
+to combine two facts:
+
+# for IPA users membership in `admins` group is used to indicate full menu should be shown
+# for AD users the fact that ID override object is presented by IPA `whoami` command is used to confine to a self-service interface
+
+The `idoverride-admemberof` Web UI plugin adds support for analysing `memberof`
+property of an ID override object. Since this information is returned in a
+different format than standard Web UI code expects, a separate plugin is
+needed.
+
+The plugin calls standard Web UI self-service detection code and in case we are
+dealing with an Active Directory user further looks in to `memberOf`
+information. If AD user is member of an admins group (any of a DNs provided as
+part of `memberOf` attribute starts with `cn=admins,cn=groups,` string), it is
+considered to be allowed to use a full Web UI view.
+
+=== Access Control ===
+
+389-ds LDAP server implements access control with the help of `acl` plugin.
+This plugin relies on a membership information of the LDAP object of the
+identity currenly bound to the LDAP server connection.
+
+The `acl` plugin retrieves list of groups the bound LDAP object belongs to and
+then evaluates each access based on the membership information and access
+control lists (ACLs). Most if not all FreeIPA ACLs rely on the group membership
+through the role/privilege/permission concepts.
+
+If an active LDAP bound object belongs to certain groups and these groups
+mentioned in the ACLs, this LDAP bound object will be allowed to perform those
+LDAP operations which allowed through the ACLs.
+
+=== Compatibility to older FreeIPA versions ====
+
+`idoverride-admemberof` plugin requires FreeIPA 4.5 or later. An integration on
+the framework level actually requires FreeIPA 4.4.1 to allow external plugins.
+However, integration with Web UI relies on an Active Directory self-service Web
+UI feature which is part of FreeIPA 4.5. In particular, FreeIPA 4.5 provides
+`whoami` command that is used to find out whether logged-in user is represented
+by an ID override.
+
+=== Upgrade and migration ===
+
+`idoverride-admemberof` plugin is designed to be resistant over future FreeIPA
+changes. When a proper solution to Active Directory users' management of
+FreeIPA is implemented, all what would be needed is to remove direct group
+membership of an ID override. A future FreeIPA solution will make sure to
+de-duplicate multiple membership information coming through static `memberof`
+and dynamic SID/ipaExternalMember group membership discovery.
+
+The plugin does not require any schema updates because `nsMemberOf` is part of
+a core 389-ds LDAP schema.
+
+== Usage of a plugin ==
+
+In order to allow Active Directory user to manage FreeIPA, following steps should be done:
+
+# An ID override for the user should be created in the `Default Trust View`
+# An ID override for the user should be added to an IPA group
+# This group should be part of a role/privilege that allows modification/management of any IPA object
+
+For Web UI the logic is the same as for IPA users: if ID override is a member
+of `admins` group, a full Web UI view is provided instead of a self-service UI.
+
+Unlike Web UI, IPA CLI relies on the access controls applied by the FreeIPA
+LDAP server and does not hide any commands. Thus full administration
+capabilities are available through the IPA CLI.
+
