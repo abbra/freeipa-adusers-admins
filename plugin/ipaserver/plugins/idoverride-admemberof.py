@@ -14,12 +14,15 @@ from ipapython.dn import DN
 group.attribute_members['member'].append('idoverrideuser')
 group.attribute_members['memberindirect'].append('idoverrideuser')
 
-# Second, allow adding nsMemberOf object class back to idoverrideuser objects
+# Second, allow idoverrideuser objects to have nsMemberOf object class
+idoverrideuser.possible_objectclasses.append('nsmemberof')
+
+# Third, allow adding nsMemberOf object class back to idoverrideuser objects
 # in case they miss them to allow memberof plugin to propagate group membership
 def idoverrideuser_pre_callback(self, ldap, dn, found, not_found,
                                 *keys, **options):
     assert isinstance(dn, DN)
-    if 'idoverrideusers' in options:
+    if 'idoverrideuser' in options:
         for id in found['member']['idoverrideuser']:
             # new_dn = self.api.Object.idoverrideuser.get_dn(id, o)
             try:
@@ -28,14 +31,11 @@ def idoverrideuser_pre_callback(self, ldap, dn, found, not_found,
                 # We are not adding an object here, only modifying existing one
                 continue
             e = add_missing_object_class(ldap, 'nsmemberof',
-                                         new_dn, entry_attrs=e, update=True)
+                                         id, entry_attrs=e, update=True)
     return dn
 
-# Third, register our pre-callback with group_add_member command
+# Fourth, register our pre-callback with group_add_member command
 group_add_member.register_pre_callback(idoverrideuser_pre_callback)
-
-# Fourth, allow idoverrideuser objects to have nsMemberOf object class
-idoverrideuser.possible_objectclasses.append('nsmemberof')
 
 # Finally, the most complex part: in a case we are dealing with a broken
 # baseidoverride.get_dn() implementation, replace it with a correct version
