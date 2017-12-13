@@ -8,7 +8,7 @@
 
 Name:           ipa-%{plugin_name}-plugin
 Version:        0.0.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        RHEL IdM plugin to allow AD users to be members of IdM groups for management purposes
 
 License:        GPL
@@ -41,9 +41,9 @@ touch debugfiles.list
 
 %install
 rm -rf $RPM_BUILD_ROOT
-#%%__mkdir_p %buildroot/%{ipa_python_sitelib}/ipaclient/plugins
+#%%__mkdir_p %buildroot/%%{ipa_python_sitelib}/ipaclient/plugins
 %__mkdir_p %buildroot/%{ipa_python_sitelib}/ipaserver/plugins
-%__mkdir_p %buildroot/%_datadir/ipa/schema.d
+#%%__mkdir_p %buildroot/%%_datadir/ipa/schema.d
 %__mkdir_p %buildroot/%_datadir/ipa/updates
 %__mkdir_p %buildroot/%_datadir/ipa/ui/js/plugins/%{plugin_name}
 
@@ -53,9 +53,10 @@ for i in ipaserver ; do
 	done
 done
 
-for j in $(find plugin/schema.d -name '*.ldif') ; do
-	%__cp $j %buildroot/%_datadir/ipa/schema.d/
-done
+#No schema files in this plugin
+#for j in $(find plugin/schema.d -name '*.ldif') ; do
+#	%%__cp $j %buildroot/%_datadir/ipa/schema.d/
+#done
 
 for j in $(find plugin/updates -name '*.update') ; do
 	%__cp $j %buildroot/%_datadir/ipa/updates/
@@ -91,15 +92,20 @@ fi
 
 %files
 %license COPYING
-%doc plugin/Feature.mediawiki
-#There is no client-side component yet
+%doc plugin/Feature.mediawiki README.md
+# There is no client-side component yet
 #%%python2_sitelib/ipaclient/plugins/*
 %{ipa_python_sitelib}/ipaserver/plugins/*
-%_datadir/ipa/schema.d/*
+# There are no schema files
+#%%_datadir/ipa/schema.d/*
 %_datadir/ipa/updates/*
 %_datadir/ipa/ui/js/plugins/%{plugin_name}/*
 
 %changelog
-* Fri Nov  10 2017 Alexander Bokovoy <abokovoy@redhat.com> 0.0.1-1
+* Wed Dec 13 2017 Alexander Bokovoy <abokovoy@redhat.com> 0.0.1-2
+- Remove packaging for components that aren't needed in this plugin
+- Package README.md too
+
+* Fri Nov 10 2017 Alexander Bokovoy <abokovoy@redhat.com> 0.0.1-1
 - Initial release
 
