@@ -149,3 +149,147 @@ Unlike Web UI, IPA CLI relies on the access controls applied by the FreeIPA
 LDAP server and does not hide any commands. Thus full administration
 capabilities are available through the IPA CLI.
 
+=== Sample usage ===
+
+1. As admin, add ID override for a user (ab@ad.ipa.cool):
+
+	[root@nyx ~]# ipa idoverrideuser-add 'default trust view' ab@ad.ipa.cool
+	---------------------------------------
+	Added User ID override "ab@ad.ipa.cool"
+	---------------------------------------
+	 Anchor to override: ab@ad.ipa.cool
+
+	[root@nyx ~]# ipa idoverrideuser-show 'default trust view' ab@ad.ipa.cool --all --raw
+	 dn: ipaanchoruuid=:SID:S-1-5-21-1356309095-650748730-1613512775-1127,cn=Default Trust View,cn=views,cn=accounts,dc=xs,dc=ipa,dc=cool
+	 ipaanchoruuid: :SID:S-1-5-21-1356309095-650748730-1613512775-1127
+	 ipaoriginaluid: ab@ad.ipa.cool
+	 objectClass: ipaOverrideAnchor
+	 objectClass: top
+	 objectClass: ipaUserOverride
+	 objectClass: ipasshuser
+	 objectClass: ipaSshGroupOfPubKeys
+
+Note objectclasses and a lack of 'memberOf'.
+
+2. Add ab@ad.ipa.cool to 'admins' group:
+
+	[root@nyx ~]# ipa group-add-member admins --idoverrideusers=ab@ad.ipa.cool
+	 Group name: admins
+	 Description: Account administrators group
+	 GID: 1536000000
+	 Member users: admin, simo
+	 Member groups: ad-admins-external
+	-------------------------
+	Number of members added 1
+	-------------------------
+
+We don't display these ID override members yet but you can see "Number
+of members added 1" – this is a successful operation.
+
+3. Indeed, ID override now has 'nsMemberOf' object class and memberOf
+attribute propagated:
+
+	[root@nyx ~]# ipa idoverrideuser-show 'default trust view' ab@ad.ipa.cool --all --raw
+	 dn: ipaanchoruuid=:SID:S-1-5-21-1356309095-650748730-1613512775-1127,cn=Default Trust View,cn=views,cn=accounts,dc=xs,dc=ipa,dc=cool
+	 ipaanchoruuid: :SID:S-1-5-21-1356309095-650748730-1613512775-1127
+	 ipaoriginaluid: ab@ad.ipa.cool
+	 memberOf: cn=admins,cn=groups,cn=accounts,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Replication Administrators,cn=privileges,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Add Replication Agreements,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Modify Replication Agreements,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Read Replication Agreements,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Remove Replication Agreements,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Modify DNA Range,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Read PassSync Managers Configuration,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Modify PassSync Managers Configuration,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Read LDBM Database Configuration,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Add Configuration Sub-Entries,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Read DNA Range,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=Host Enrollment,cn=privileges,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=System: Add krbPrincipalName to a Host,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=System: Enroll a Host,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=System: Manage Host Certificates,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=System: Manage Host Enrollment Password,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=System: Manage Host Keytab,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 memberOf: cn=System: Manage Host Principals,cn=permissions,cn=pbac,dc=xs,dc=ipa,dc=cool
+	 objectClass: ipaOverrideAnchor
+	 objectClass: top
+	 objectClass: ipaUserOverride
+	 objectClass: ipasshuser
+	 objectClass: ipaSshGroupOfPubKeys
+	 objectClass: nsMemberOf
+
+4. Can we use it? Let's see:
+
+	[root@nyx ~]# kdestroy -A
+	[root@nyx ~]# kinit ab@AD.IPA.COOL
+	Password for ab@AD.IPA.COOL: [root@nyx ~]# ipa group-show some-new-group
+	ipa: ERROR: some-new-group: group not found
+	[root@nyx ~]# ipa group-add some-new-group
+	----------------------------
+	Added group "some-new-group"
+	----------------------------
+	 Group name: some-new-group
+	 GID: 1536000052
+	[root@nyx ~]# ldapsearch -H `cat /etc/ipa/default.conf |grep ldap_uri|cut -d' ' -f3` -LLL  -o ldif-wrap=no \
+				 -b dc=xs,dc=ipa,dc=cool cn=some-new-group '*' creatorsname createtimestamp
+	SASL/EXTERNAL authentication started
+	SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+	SASL SSF: 0
+	dn: cn=some-new-group,cn=groups,cn=accounts,dc=xs,dc=ipa,dc=cool
+	cn: some-new-group
+	objectClass: top
+	objectClass: groupofnames
+	objectClass: nestedgroup
+	objectClass: ipausergroup
+	objectClass: ipaobject
+	objectClass: posixgroup
+	objectClass: ipantgroupattrs
+	ipaUniqueID: ffc0e82e-c5e2-11e7-9677-001a4a62eb77
+	gidNumber: 1536000052
+	ipaNTSecurityIdentifier: S-1-5-21-570121326-3336757064-1157332047-1052
+	creatorsname: ipaanchoruuid=:sid:s-1-5-21-1356309095-650748730-1613512775-1127,cn=default trust view,cn=views,cn=accounts,dc=xs,dc=ipa,dc=cool
+	createtimestamp: 20171110064720Z
+
+	[root@nyx ~]# ipa group-remove-member admins --idoverrideusers=ab@ad.ipa.cool
+	 Group name: admins
+	 Description: Account administrators group
+	 GID: 1536000000
+	 Member users: admin, simo
+	 Member groups: ad-admins-external
+	---------------------------
+	Number of members removed 1
+	---------------------------
+	[root@nyx ~]# ipa group-add some-new-group-1
+	ipa: ERROR: Insufficient access: Insufficient 'add' privilege to add the entry 'cn=some-new-group-1,cn=groups,cn=accounts,dc=xs,dc=ipa,dc=cool'.
+
+	[root@nyx ~]# ldapsearch -H `cat /etc/ipa/default.conf |grep ldap_uri|cut -d' ' -f3` -LLL  -o ldif-wrap=no \
+				 -b dc=xs,dc=ipa,dc=cool ipaoriginaluid=ab@ad.ipa.cool
+	SASL/EXTERNAL authentication started
+	SASL username: gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+	SASL SSF: 0
+	dn: ipaanchoruuid=:SID:S-1-5-21-1356309095-650748730-1613512775-1127,cn=Default Trust View,cn=views,cn=accounts,dc=xs,dc=ipa,dc=cool
+	ipaAnchorUUID:: OlNJRDpTLTEtNS0yMS0xMzU2MzA5MDk1LTY1MDc0ODczMC0xNjEzNTEyNzc1LTExMjc=
+	objectClass: ipaOverrideAnchor
+	objectClass: top
+	objectClass: ipaUserOverride
+	objectClass: ipasshuser
+	objectClass: ipaSshGroupOfPubKeys
+	objectClass: nsMemberOf
+	ipaOriginalUid: ab@ad.ipa.cool
+
+	[root@nyx ~]# klist Ticket cache: KEYRING:persistent:0:krb_ccache_QfT6NDp
+	Default principal: ab@AD.IPA.COOL
+
+	Valid starting     Expires            Service principal
+	11/10/17 07:47:13  11/10/17 17:46:51  HTTP/nyx.xs.ipa.cool@XS.IPA.COOL
+	    renew until 11/11/17 07:46:47
+	11/10/17 07:47:12  11/10/17 17:46:51  krbtgt/XS.IPA.COOL@AD.IPA.COOL
+	    renew until 11/11/17 07:46:47
+	11/10/17 07:46:51  11/10/17 17:46:51  krbtgt/AD.IPA.COOL@AD.IPA.COOL
+	    renew until 11/11/17 07:46:47
+
+When user is removed from the admins group, it immediately becomes powerless.
+The 'nsMemberOf' objectclass still there but memberOf plugin removed all
+the membership.
+
