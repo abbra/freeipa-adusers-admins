@@ -1,5 +1,10 @@
 %global debug_package %{nil}
 %define plugin_name idoverride-admemberof
+%if 0%{?fedora} > 26 || 0%{?rhel} > 7
+%define ipa_python_sitelib %{python3_sitelib}
+%else
+%define ipa_python_sitelib %{python2_sitelib}
+%endif
 
 Name:           ipa-%{plugin_name}-plugin
 Version:        0.0.1
@@ -7,8 +12,7 @@ Release:        1%{?dist}
 Summary:        RHEL IdM plugin to allow AD users to be members of IdM groups for management purposes
 
 License:        GPL
-URL:            https://github.com/abbra/freeipa-userstatus-plugin
-Source0:        %{name}-%{version}.tar.gz
+Source0:        ipa-%{plugin_name}-%{version}.tar.gz
 
 %if 0%{?fedora} > 26 || 0%{?rhel} > 7
 BuildRequires: python3-devel
@@ -30,18 +34,12 @@ AD users can manage IdM resources if they are allowed to do so
 by roles their groups are part of.
 
 %prep
-%autosetup
+%autosetup -n ipa-%{plugin_name}-%{version}
 
 %build
 touch debugfiles.list
 
 %install
-%if 0%{?fedora} > 26 || 0%{?rhel} > 7
-ipa_python_sitelib=%{python3_sitelib}
-%else
-ipa_python_sitelib=%{python2_sitelib}
-%endif
-
 rm -rf $RPM_BUILD_ROOT
 #%%__mkdir_p %buildroot/%{ipa_python_sitelib}/ipaclient/plugins
 %__mkdir_p %buildroot/%{ipa_python_sitelib}/ipaserver/plugins
@@ -51,20 +49,20 @@ rm -rf $RPM_BUILD_ROOT
 
 for i in ipaserver ; do
 	for j in $(find plugin/$i/plugins -name '*.py') ; do
-		%__cp $j %buildroot/%{ipa_python_sitelib}/$i/plugins
+		%__cp $j %buildroot/%{ipa_python_sitelib}/$i/plugins/
 	done
 done
 
 for j in $(find plugin/schema.d -name '*.ldif') ; do
-	%__cp $j %buildroot/%_datadir/ipa/schema.d
+	%__cp $j %buildroot/%_datadir/ipa/schema.d/
 done
 
 for j in $(find plugin/updates -name '*.update') ; do
-	%__cp $j %buildroot/%_datadir/ipa/updates
+	%__cp $j %buildroot/%_datadir/ipa/updates/
 done
 
-for j in $(find plugin/ui/%{plugin_name} -name '*.js') ; do
-	%__cp $j %buildroot/%_datadir/ipa/js/plugins/%{plugin_name}
+for j in $(find plugin/ui -name '*.js') ; do
+	%__cp $j %buildroot/%_datadir/ipa/ui/js/plugins/%{plugin_name}/
 done
 
 
@@ -96,12 +94,12 @@ fi
 %doc plugin/Feature.mediawiki
 #There is no client-side component yet
 #%%python2_sitelib/ipaclient/plugins/*
-%python2_sitelib/ipaserver/plugins/*
+%{ipa_python_sitelib}/ipaserver/plugins/*
 %_datadir/ipa/schema.d/*
 %_datadir/ipa/updates/*
 %_datadir/ipa/ui/js/plugins/%{plugin_name}/*
 
 %changelog
-* Thu Nov  10 2017 Alexander Bokovoy <abokovoy@redhat.com> 0.0.1-1
+* Fri Nov  10 2017 Alexander Bokovoy <abokovoy@redhat.com> 0.0.1-1
 - Initial release
 
