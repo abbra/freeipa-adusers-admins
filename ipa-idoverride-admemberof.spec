@@ -16,11 +16,11 @@ BuildRequires: python3-devel
 BuildRequires:  python2-devel
 %endif
 
-Requires:       ipa-server-common >= 4.4.1
+Requires:       ipa-server-common >= 4.5
 %if 0%{?fedora} > 26 || 0%{?rhel} > 7
 BuildRequires: python3-ipaserver >= 4.6.0
 %else
-BuildRequires:  python2-ipaserver >= 4.4.1
+BuildRequires:  python2-ipaserver >= 4.5
 %endif
 
 %description
@@ -43,13 +43,13 @@ ipa_python_sitelib=%{python2_sitelib}
 %endif
 
 rm -rf $RPM_BUILD_ROOT
-%__mkdir_p %buildroot/%{ipa_python_sitelib}/ipaclient/plugins
+#%%__mkdir_p %buildroot/%{ipa_python_sitelib}/ipaclient/plugins
 %__mkdir_p %buildroot/%{ipa_python_sitelib}/ipaserver/plugins
 %__mkdir_p %buildroot/%_datadir/ipa/schema.d
 %__mkdir_p %buildroot/%_datadir/ipa/updates
 %__mkdir_p %buildroot/%_datadir/ipa/ui/js/plugins/%{plugin_name}
 
-for i in ipaclient ipaserver ; do
+for i in ipaserver ; do
 	for j in $(find plugin/$i/plugins -name '*.py') ; do
 		%__cp $j %buildroot/%{ipa_python_sitelib}/$i/plugins
 	done
@@ -94,7 +94,8 @@ fi
 %files
 %license COPYING
 %doc plugin/Feature.mediawiki
-%python2_sitelib/ipaclient/plugins/*
+#There is no client-side component yet
+#%%python2_sitelib/ipaclient/plugins/*
 %python2_sitelib/ipaserver/plugins/*
 %_datadir/ipa/schema.d/*
 %_datadir/ipa/updates/*
