@@ -142,8 +142,10 @@ In order to allow Active Directory user to manage FreeIPA, following steps shoul
 # An ID override for the user should be added to an IPA group
 # This group should be part of a role/privilege that allows modification/management of any IPA object
 
-For Web UI the logic is the same as for IPA users: if ID override is a member
-of `admins` group, a full Web UI view is provided instead of a self-service UI.
+For Web UI the logic is a bit different from the one used for IPA users. If AD
+user is a member of any role/privilege/permission, it is provided with a full
+interface. If such user is not a member of any role/privilege/permission, only
+self-service page would be available.
 
 Unlike Web UI, IPA CLI relies on the access controls applied by the FreeIPA
 LDAP server and does not hide any commands. Thus full administration
