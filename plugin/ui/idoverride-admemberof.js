@@ -21,8 +21,12 @@ admemberof_plugin.replace_is_selfservice = function() {
 
             if (self_service && whoami.hasOwnProperty('memberof')) {
 		var i = 0;
+		var suffix = whoami.dn.substr(whoami.dn.lastIndexOf(',cn=accounts,') + 13);
+		// If ID Override is a member of any privilege, role, or permission,
+		// assume the user is granted with administrative rights and thus
+		// should not be in a self service mode.
 		for (i = 0; i < whoami.memberof.length; i++) {
-		    if (whoami.memberof[i].startsWith('cn=admins,cn=groups,')) {
+		    if (whoami.memberof[i].includes(',cn=pbac,' + suffix)) {
 			self_service = false;
 		    }
 		}
