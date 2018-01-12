@@ -7,7 +7,7 @@
 %endif
 
 Name:           ipa-%{plugin_name}-plugin
-Version:        0.0.3
+Version:        0.0.4
 Release:        1%{?dist}
 Summary:        RHEL IdM plugin to allow AD users to be members of IdM groups for management purposes
 
@@ -100,6 +100,10 @@ fi
 %_datadir/ipa/ui/js/plugins/%{plugin_name}/*
 
 %changelog
+* Wed Jan 12 2018 Alexander Bokovoy <abokovoy@redhat.com> 0.0.4-1
+- New release
+- For non-admins reading memberOf from the user ID Overrride was not possible, fix it
+
 * Wed Jan 10 2018 Alexander Bokovoy <abokovoy@redhat.com> 0.0.3-1
 - New release
 - Show self-service to AD users only if they have no roles/privileges/permissions assigned

@@ -15,7 +15,10 @@ group.attribute_members['member'].append('idoverrideuser')
 group.attribute_members['memberindirect'].append('idoverrideuser')
 
 # Second, allow idoverrideuser objects to have nsMemberOf object class
+# and to allow reading memberOf if it is there
 idoverrideuser.possible_objectclasses.append('nsmemberof')
+permission = idoverrideuser.managed_permissions['System: Read User ID Overrides']
+permission['ipapermdefaultattr'].add('memberof')
 
 # Third, allow adding nsMemberOf object class back to idoverrideuser objects
 # in case they miss them to allow memberof plugin to propagate group membership
