@@ -1,14 +1,14 @@
 %global debug_package %{nil}
-%define plugin_name idoverride-admemberof
+%define plugin_name idoverride-memberof
 %if 0%{?fedora} > 26 || 0%{?rhel} > 7
 %define ipa_python_sitelib %{python3_sitelib}
 %else
 %define ipa_python_sitelib %{python2_sitelib}
 %endif
 
-Name:           ipa-%{plugin_name}-plugin
+Name:           ipa-%{plugin_name}
 Version:        0.0.4
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        RHEL IdM plugin to allow AD users to be members of IdM groups for management purposes
 
 License:        GPL
@@ -28,6 +28,16 @@ BuildRequires:  python2-ipaserver >= 4.5
 %endif
 
 %description
+This plugin adds an experimental support to RHEL IdM to allow
+Active Directory users to be members of IdM groups. As result,
+AD users can manage IdM resources if they are allowed to do so
+by roles their groups are part of.
+
+%package plugin
+Summary:        RHEL IdM plugin to allow AD users to be members of IdM groups for management purposes
+License:        GPL
+
+%description plugin
 This plugin adds an experimental support to RHEL IdM to allow
 Active Directory users to be members of IdM groups. As result,
 AD users can manage IdM resources if they are allowed to do so
@@ -66,7 +76,7 @@ for j in $(find plugin/ui -name '*.js') ; do
 done
 
 
-%posttrans
+%posttrans plugin
 %if 0%{?fedora} > 26 || 0%{?rhel} > 7
 ipa_interp=python3
 %else
@@ -89,7 +99,7 @@ if [ $? -eq 0 ]; then
     fi
 fi
 
-%files
+%files plugin
 %license COPYING
 %doc plugin/Feature.mediawiki README.md
 # There is no client-side component yet
@@ -100,7 +110,13 @@ fi
 %_datadir/ipa/ui/js/plugins/%{plugin_name}/*
 
 %changelog
-* Wed Jan 12 2018 Alexander Bokovoy <abokovoy@redhat.com> 0.0.4-1
+* Mon Jul 30 2018 Alexander Bokovoy <abokovoy@redhat.com> 0.0.4-3
+- Refactor spec file
+
+* Fri Jul 27 2018 Alexander Bokovoy <abokovoy@redhat.com> 0.0.4-2
+- Build for idm module stream 4
+
+* Fri Jan 12 2018 Alexander Bokovoy <abokovoy@redhat.com> 0.0.4-1
 - New release
 - For non-admins reading memberOf from the user ID Overrride was not possible, fix it
 
